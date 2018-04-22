@@ -61,7 +61,8 @@ setup(
     install_requires=[
         'Flask>=0.12.2',
         'Flask-Sockets>=0.2.1',
-        'gevent==1.2.2',
+        'gevent>=1.2.2',
+        'influxdb>=5.0.0'
         'requests>=2.18.4'
     ],
     python_requires='~=3.6',
