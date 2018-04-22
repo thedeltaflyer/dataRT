@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>dataRT Plot Data Example</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css" integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4" crossorigin="anonymous">
+
+    <!-- Custom styles for this template -->
+    <link href="navbar-top-fixed.css" rel="stylesheet">
+  </head>
+  <body>
+
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+      <a class="navbar-brand" href="#">dataRT</a>
+      <span class="navbar-text">Real-Time Data WebSocket Library</span>
+    </nav>
+
+    <main role="main" class="container">
+      <div class="spacer"></div>
+      <div class="jumbotron my-1 py-4">
+        <h1>Plot Data Example</h1>
+        <p class="lead">This example adds every message that is recieved via a WebSocket connection on localhost to a chart</p>
+        <hr class="my-4">
+        <p>The WebSocket attempts to connect on page-load, you may need to reload to connect the WebSocket.</p>
+        <p>Watch the JavaScript console for errors. This is only a basic example...</p>
+      </div>
+      </div>
+    </main>
+    <div class="container mb-2">
+      <div class="row">
+        <div class="col-12">
+          <canvas id="myChart" class="col-12" width="100%" height="50%"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js" integrity="sha256-YFhaeQSVBgAFNN5z4I9YRB2jCuqc2nvypz0Q2eQzcx8=" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.1/moment.min.js" integrity="sha256-L3S3EDEk31HcLA5C6T2ovHvOcD80+fgqaCDt2BAi92o=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.min.js" integrity="sha256-CfcERD4Ov4+lKbWbYqXD6aFM9M51gN4GUEtDhkWABMo=" crossorigin="anonymous"></script>
+    <script>
+
+      // Set up the chart as described in the Chartjs documentation. See http://www.chartjs.org/ for details
+      let ctx = document.getElementById("myChart").getContext('2d');
+      let myChart = new Chart(ctx, {
+        type: 'line',
+        options: {
+          scales: {
+            yAxes: [{
+              ticks: {
+                beginAtZero:true
+              }
+            }],
+            xAxes: [{
+              type: 'time',
+              distribution: 'series'
+            }]
+          }
+        }
+      });
+
+      $( document ).ready(function() {
+        // Create a WebSocket Connection to localhost. The Default port for dataRT is 8080
+        window.ws = new WebSocket('ws://127.0.0.1:8080/ws/client');
+
+        // This function will get called whenever there is a message
+        window.ws.onmessage = function (event) {
+          console.log(event.data);
+
+          // Convert the data to a JS object to work with
+          const data = JSON.parse(event.data);
+
+          // Since we're dealing with timeseries data, let's call the timestamp now, or set it to a time if provided...
+          let timestamp = moment();
+          if (data.timestamp) {
+            timestamp = moment(data.timestamp);
+          }
+
+          // Check to see if a measurement was provided since this will be used for labeling
+          let measurement = data.measurement || 'N/A';
+
+          // We can only chart values from fields, so let's make sure we have some fields...
+          if (data.fields) {
+            // This will go through each field and give us the value and key
+            _.forEach(data.fields, (val, key) => {
+              let found_dataset = false;
+
+              // Call the label a combination of the measurement name and the field key
+              let label = measurement + '_' + key;
+
+              // For the data itself, use the timestamp and the value of the field
+              let chart_data = {
+                t: timestamp.toISOString(),
+                y: val
+              };
+
+              // We need to go through all the datasets to see if there's a match
+              myChart.data.datasets.forEach((dataset) => {
+                // Check if any datasets have a matching label...
+                if (dataset.label === label) {
+                    dataset.data.push(chart_data);
+                    found_dataset = true;  // We found the dataset, so let's note that we did!
+                }
+              });
+
+              // Looks like the dataset doesn't exist yet, create a new one and feed our new point into it
+              if (!found_dataset) {
+                  myChart.data.datasets.push({
+                      label: label,
+                      data: [chart_data]
+                  });
+              }
+            });
+
+            // We need to tell the chart to update now so we see the new data
+            myChart.update();
+          }
+        };
+        window.ws.onopen = function () {
+          console.log('WebSocket Open');
+        };
+        window.ws.onclose = function () {
+          console.log('WebSocket Closed');
+        };
+        window.ws.onerror = function (event) {
+          console.log(event.data);
+        };
+      });
+    </script>
+  </body>
+</html>
