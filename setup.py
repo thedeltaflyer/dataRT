@@ -28,7 +28,7 @@ class RunTests(Command):
 
     def run(self):
         """Run all tests!"""
-        err_no = call(['py.test', '--cov=kafka_tail_api', '--cov-report=term-missing'])
+        err_no = call(['py.test', '--cov=dataRT', '--cov-report=term-missing'])
         raise SystemExit(err_no)
 
 
